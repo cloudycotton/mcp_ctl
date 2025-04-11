@@ -1,0 +1,95 @@
+{
+  "registryVersion": "1.0.0",
+  "lastUpdated": "2024-04-11",
+  "packages": {
+    "github": {
+      "name": "Github MCP Server",
+      "version": "1.0.0",
+      "aliases": ["gh", "github"],
+      "description": "GitHub integration MCP server",
+      "repository": "ghcr.io/github/github-mcp-server",
+      "maintainer": "cloudcotton",
+      "inputs": [
+        {
+          "name": "github_personal_token",
+          "type": "string",
+          "required": true,
+          "description": "GitHub Personal Access Token"
+        }
+      ],
+      "dependencies": ["docker"],
+      "buildConfig": {
+        "command": "docker",
+        "args": [
+          "run",
+          "-i",
+          "--rm",
+          "-e",
+          "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "ghcr.io/github/github-mcp-server"
+        ]
+      }
+    },
+    "playwright": {
+      "name": "Playwright MCP Server",
+      "aliases": ["playwright", "browser"],
+      "version": "1.0.0",
+      "description": "Browser automation MCP server with visual capabilities",
+      "repository": "ghcr.io/playwright/playwright-mcp",
+      "maintainer": "cloudcotton",
+      "inputs": [
+        {
+          "name": "vision",
+          "type": "boolean",
+          "required": false,
+          "description": "Enable visual comparison capabilities",
+          "default": false
+        },
+        {
+          "name": "port",
+          "type": "number",
+          "required": false,
+          "description": "Port to run the server on",
+          "default": 3000
+        }
+      ],
+      "dependencies": ["docker"],
+      "buildConfig": {
+        "command": "npx",
+        "args": ["-y", "@playwright/mcp@latest"],
+        "configOptions": {
+          "headless": "--headless",
+          "vision": "--vision"
+        }
+      }
+    },
+    "semgrep": {
+      "name": "Semgrep MCP Server",
+      "aliases": ["semgrep-mcp"],
+      "version": "1.0.0",
+      "description": "Code analysis and security scanning MCP server",
+      "repository": "ghcr.io/semgrep/semgrep-mcp",
+      "maintainer": "cloudcotton",
+      "inputs": [
+        {
+          "name": "rules_path",
+          "type": "string",
+          "required": false,
+          "description": "Path to custom Semgrep rules",
+          "default": "./rules"
+        },
+        {
+          "name": "api_token",
+          "type": "string",
+          "required": true,
+          "description": "Semgrep API token for rule syncing"
+        }
+      ],
+      "dependencies": ["docker"],
+      "buildConfig": {
+        "command": "uvx",
+        "args": ["semgrep-mcp"]
+      }
+    }
+  }
+}

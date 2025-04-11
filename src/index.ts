@@ -4,26 +4,31 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import inquirer from "inquirer";
 import fuzzy from "fuzzy";
-import { packages } from "./packages";
+
 import { spawn } from "child_process";
 import { readClaudeConfig, writeClaudeConfig } from "./claude_config";
 import { term } from "./term";
 import { InputType } from "./create_package";
-
+import { RegistryManager } from './registry/registry_manager';
+import { Registry, PackageMetadata } from './types/registry';
+const registryManager = new RegistryManager();
 // Search functionality
-function searchPackages(term: string) {
-  const packageNames = Object.keys(packages);
+async function searchPackages(term: string) {
+  const packages = await registryManager.listPackages();
+  // console.log("packages", packages);
+  const packageNames = packages.map(p => p.name);
+  // console.log("packageNames", packageNames);
   const results = fuzzy
     .filter(term, packageNames)
     .map((result) => result.string);
-
+  // console.log("results", results);
   // Include aliases in search
-  Object.entries(packages).forEach(([name, pkg]) => {
-    if (!results.includes(name)) {
-      const matchesAlias = pkg.aliases.some(
+  packages.forEach((pkg) => {
+    if (!results.includes(pkg.name)) {
+      const matchesAlias = pkg.aliases?.some(
         (alias) => fuzzy.match(term, alias) !== null
       );
-      if (matchesAlias) results.push(name);
+      if (matchesAlias) results.push(pkg.name);
     }
   });
 
@@ -31,13 +36,14 @@ function searchPackages(term: string) {
 }
 
 // Format output
-function formatPackage(name: string) {
-  const pkg = packages[name as keyof typeof packages];
+async function formatPackage(pkg: PackageMetadata) {
+  // const pkg = await registryManager.getPackage(name);
+  if (!pkg) return '';
 
   return `
-${term.bold(pkg.name)} ${term.gray(`(${pkg.aliases.join(", ")})`)}
+${term.bold(pkg.name)} ${term.gray(`(${pkg.version})`)}
 ${term.dim("Dependencies:")} ${
-    pkg.dependsOn.length ? pkg.dependsOn.join(", ") : "None"
+    pkg.dependencies.length ? pkg.dependencies.join(", ") : "None"
   }
 ${term.dim("Inputs:")}
 ${pkg.inputs
@@ -71,9 +77,9 @@ ${term.green(name)}
 }
 async function installPackage(packageName: string, serverName?: string) {
   // Find package
-  const pkg = packages[packageName as keyof typeof packages];
+  const pkg = await registryManager.getPackage(packageName);
   if (!pkg) {
-    const suggestions = searchPackages(packageName);
+    const suggestions = await searchPackages(packageName);
     if (suggestions.length > 0) {
       console.log(term.red(`Package "${packageName}" not found.`));
       console.log(term.yellow(`Did you mean: ${suggestions.join(", ")}?`));
@@ -84,9 +90,9 @@ async function installPackage(packageName: string, serverName?: string) {
   }
 
   // Check dependencies
-  if (pkg.dependsOn.length > 0) {
+  if (pkg.dependencies.length > 0) {
     console.log(
-      term.yellow(`Checking dependencies: ${pkg.dependsOn.join(", ")}`)
+      term.yellow(`Checking dependencies: ${pkg.dependencies.join(", ")}`)
     );
     // Implement dependency checking logic
   }
@@ -162,7 +168,7 @@ async function installPackage(packageName: string, serverName?: string) {
   }
 
   // Build config
-  const mcpConfig = pkg.buildConfig(inputs as any);
+  const mcpConfig =  await registryManager.buildConfig(packageName, inputs);
 
   // Update Claude config
   await updateClaudeConfig({
@@ -304,11 +310,15 @@ async function startServer(serverName: string) {
 }
 
 async function listPackages(searchTerm?: string) {
-  let packageNames = Object.keys(packages);
-
+  let packages = await registryManager.listPackages();
+  // console.log(packages);
   if (searchTerm) {
-    packageNames = searchPackages(searchTerm);
-    if (packageNames.length === 0) {
+    console.log(term.yellow(`Searching for packages matching "${searchTerm}"...`));
+    const matchedNames = await searchPackages(searchTerm);
+    // console.log(matchedNames);
+    packages = packages.filter(pkg => matchedNames.includes(pkg.name));
+    
+    if (packages.length === 0) {
       console.log(term.yellow(`No packages found matching "${searchTerm}"`));
       return;
     }
@@ -317,9 +327,9 @@ async function listPackages(searchTerm?: string) {
     console.log(term.bold("\nAvailable MCP Packages:"));
   }
 
-  packageNames.forEach((name) => {
-    console.log(formatPackage(name));
-  });
+  for (const pkg of packages) {
+    console.log(await formatPackage(pkg));
+  }
 }
 
 // Main CLI definition
