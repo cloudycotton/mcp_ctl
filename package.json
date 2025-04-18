@@ -1,32 +1,16 @@
 {
-  "name": "mcpctl",
-  "version": "0.0.6",
-  "main": "index.ts",
-  "bin": {
-    "mcpctl": "./dist/index.js"
-  },
+  "name": "mcp-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsup src/index.ts",
-    "dev": "tsx src/index.ts"
-  },
-  "author": "cloudcotton",
-  "license": "MIT",
-  "description": "A package manager for MCP servers.",
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@types/yargs": "^17.0.33",
-    "tsup": "^8.4.0",
-    "tsx": "^4.19.3",
-    "typescript": "^5.8.3"
+    "build": "npm run build --workspaces",
+    "dev": "npm run dev --workspaces"
   },
   "dependencies": {
-    "chalk": "^5.4.1",
-    "fuzzy": "^0.1.3",
-    "inquirer": "^12.5.2",
-    "yargs": "^17.7.2"
-  },
-  "files": [
-    "./dist"
-  ]
+    "drizzle-kit": "^0.31.0",
+    "drizzle-orm": "^0.42.0",
+    "pg": "^8.14.1"
+  }
 }

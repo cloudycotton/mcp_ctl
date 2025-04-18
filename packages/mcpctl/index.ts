@@ -4,40 +4,22 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import inquirer from "inquirer";
 import fuzzy from "fuzzy";
-import { packages } from "./packages";
+
 import { spawn } from "child_process";
 import { readClaudeConfig, writeClaudeConfig } from "./claude_config";
 import { term } from "./term";
 import { InputType } from "./create_package";
+import { RegistryManager } from './registry/registry_manager';
+import { PackageMetadata } from './types/registry';
+const registryManager = new RegistryManager();
 
-// Search functionality
-function searchPackages(term: string) {
-  const packageNames = Object.keys(packages);
-  const results = fuzzy
-    .filter(term, packageNames)
-    .map((result) => result.string);
-
-  // Include aliases in search
-  Object.entries(packages).forEach(([name, pkg]) => {
-    if (!results.includes(name)) {
-      const matchesAlias = pkg.aliases.some(
-        (alias) => fuzzy.match(term, alias) !== null
-      );
-      if (matchesAlias) results.push(name);
-    }
-  });
-
-  return results;
-}
-
-// Format output
-function formatPackage(name: string) {
-  const pkg = packages[name as keyof typeof packages];
+async function formatPackage(pkg: PackageMetadata) {
+  if (!pkg) return '';
 
   return `
-${term.bold(pkg.name)} ${term.gray(`(${pkg.aliases.join(", ")})`)}
+${term.bold(pkg.name)} ${term.gray(`(${pkg.version})`)}
 ${term.dim("Dependencies:")} ${
-    pkg.dependsOn.length ? pkg.dependsOn.join(", ") : "None"
+    pkg.dependencies.length ? pkg.dependencies.join(", ") : "None"
   }
 ${term.dim("Inputs:")}
 ${pkg.inputs
@@ -70,28 +52,15 @@ ${term.green(name)}
   });
 }
 async function installPackage(packageName: string, serverName?: string) {
-  // Find package
-  const pkg = packages[packageName as keyof typeof packages];
-  if (!pkg) {
-    const suggestions = searchPackages(packageName);
-    if (suggestions.length > 0) {
-      console.log(term.red(`Package "${packageName}" not found.`));
-      console.log(term.yellow(`Did you mean: ${suggestions.join(", ")}?`));
-    } else {
-      console.log(term.red(`Package "${packageName}" not found.`));
-    }
-    return;
-  }
+  let packages = await registryManager.listPackages(packageName,true);
+  const pkg = packages[0];
 
-  // Check dependencies
-  if (pkg.dependsOn.length > 0) {
+  if (pkg.dependencies.length > 0) {
     console.log(
-      term.yellow(`Checking dependencies: ${pkg.dependsOn.join(", ")}`)
+      term.yellow(`Checking dependencies: ${pkg.dependencies.join(", ")}`)
     );
-    // Implement dependency checking logic
   }
 
-  // Use provided server name or prompt for one
   let finalServerName = serverName;
   if (!finalServerName) {
     const answers = await inquirer.prompt([
@@ -107,14 +76,12 @@ async function installPackage(packageName: string, serverName?: string) {
     finalServerName = answers.serverName;
   }
 
-  // Collect inputs
+
   const inputs: Record<string, unknown> = {};
   for (const input of pkg.inputs) {
-    // Define the inquirer prompt type based on input.type
-    // Use type assertion to help TypeScript recognize all possible values
+
     const inputType = input.type as InputType;
 
-    // Map InputType to inquirer prompt type
     let promptType: string;
     switch (inputType) {
       case "boolean":
@@ -129,23 +96,23 @@ async function installPackage(packageName: string, serverName?: string) {
         break;
     }
 
-    // Set default value if provided
+
     const promptConfig: any = {
       type: promptType,
       name: "value",
       message: `${input.description}${input.required ? " (required)" : ""}:`,
     };
 
-    // Only add default if it's defined
+
     if ((input as any).default) {
       promptConfig.default = (input as any).default;
     }
 
-    // Add appropriate validation
+
     promptConfig.validate = (value: any) => {
       if (input.required) {
         if (inputType === "boolean") {
-          // Boolean values are always valid in a confirm prompt
+
           return true;
         } else if (
           value === undefined ||
@@ -161,10 +128,10 @@ async function installPackage(packageName: string, serverName?: string) {
     inputs[input.name] = answers.value;
   }
 
-  // Build config
-  const mcpConfig = pkg.buildConfig(inputs as any);
 
-  // Update Claude config
+  const mcpConfig =  await registryManager.buildConfig(packageName, inputs);
+
+
   await updateClaudeConfig({
     name: finalServerName,
     command: mcpConfig.command,
@@ -304,22 +271,16 @@ async function startServer(serverName: string) {
 }
 
 async function listPackages(searchTerm?: string) {
-  let packageNames = Object.keys(packages);
-
-  if (searchTerm) {
-    packageNames = searchPackages(searchTerm);
-    if (packageNames.length === 0) {
-      console.log(term.yellow(`No packages found matching "${searchTerm}"`));
-      return;
-    }
-    console.log(term.bold(`\nPackages matching "${searchTerm}":`));
-  } else {
-    console.log(term.bold("\nAvailable MCP Packages:"));
+  let packages = await registryManager.listPackages(searchTerm);
+  if (packages.length ==0){
+    console.log(term.red(`No packages found`));
+    return;
   }
-
-  packageNames.forEach((name) => {
-    console.log(formatPackage(name));
-  });
+  
+  for (const pkg of packages) {
+    console.log(await formatPackage(pkg));
+  }
+  console.log(term.green(`Found ${packages.length} packages`));
 }
 
 // Main CLI definition
