@@ -1,0 +1,27 @@
+{
+    "name": "mcpctl",
+    "version": "0.0.6",
+    "main": "dist/index.js",
+    "bin": {
+      "mcpctl": "./dist/index.js"
+    },
+    "scripts": {
+      "build": "tsup src/index.ts",
+      "dev": "tsx src/index.ts"
+    },
+    "dependencies": {
+      "@mcp/registry": "file:../../registry",
+      "chalk": "^5.4.1",
+      "dotenv": "^16.5.0",
+      "fuzzy": "^0.1.3",
+      "inquirer": "^12.5.2",
+      "yargs": "^17.7.2"
+    },
+    "devDependencies": {
+      "@types/node": "^22.14.0",
+      "@types/yargs": "^17.0.33",
+      "tsup": "^8.4.0",
+      "tsx": "^4.19.3",
+      "typescript": "^5.8.3"
+    }
+  }

@@ -1,0 +1,23 @@
+{
+    "name": "@mcp/registry",
+    "version": "0.0.1",
+    "private": false,
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    
+    "dependencies": {
+      "@hono/node-server": "^1.4.0",
+      "@supabase/supabase-js": "^2.49.4",
+      "dotenv": "^16.5.0",
+      "drizzle-kit": "^0.31.0",
+      "drizzle-orm": "^0.42.0",
+      "hono": "^4.0.0",
+      "pg": "^8.14.1",
+      "tsx": "^4.19.3"
+    },
+    "devDependencies": {
+      "@types/node": "^22.14.0",
+      "tsup": "^8.4.0",
+      "typescript": "^5.8.3"
+    }
+  }
